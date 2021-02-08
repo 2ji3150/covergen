@@ -2,15 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Magick.NET-Q16-HDRI-x64" Version="7.21.1" />
+    <PackageReference Include="Magick.NET-Q16-HDRI-x64" Version="7.23.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="batch\**" CopyToOutputDirectory="PreserveNewest"/> 
+    <Content Include="batch\**" CopyToOutputDirectory="PreserveNewest" /> 
   </ItemGroup>
   
 </Project>
