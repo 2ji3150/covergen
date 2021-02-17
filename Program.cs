@@ -71,13 +71,14 @@ namespace covergen {
                             int bottom = config.Crop.Bottom;
                             image.Crop(new MagickGeometry(left, top, image.Width - left - right, image.Height - top - bottom));
                             image.RePage();
-                            Console.WriteLine($"cropped: {image.Height}x{image.Width}");
+                            Console.WriteLine($"cropped: {image.Width}x{image.Height}");
                         }
                         if (config.Noise != null) noiseSwitch = $"-n {config.Noise}";
 
 
                     }
-                    while (scale * image.Width < cover_width) scale *= 2;
+                    var breadth = Math.Min(image.Width, image.Height);
+                    while (scale * breadth < cover_width) scale *= 2;
                     if (scale != 2) scaleSwitch = $"-s {scale}";
                     Console.WriteLine($"scale:{scale}");
                     image.Write(@"tmp\cover.bmp");
@@ -85,16 +86,16 @@ namespace covergen {
                     ExcuteBatch("waifu2x", string.Join(" ", noiseSwitch, scaleSwitch));
                     //center crop
                     using MagickImage image_cover = new MagickImage(@"tmp\cover.png");
-                    Console.WriteLine($"upscaled: {image_cover.Height}x{image_cover.Width}");
+                    Console.WriteLine($"upscaled: {image_cover.Width}x{image_cover.Height}");
                     if (image_cover.Width != image_cover.Height) {
                         image_cover.Crop(square, Gravity.Center);
                         image_cover.RePage();
                     }
-                    Console.WriteLine($"center_cropped: {image_cover.Height}x{image_cover.Width}");
+                    Console.WriteLine($"center_cropped: {image_cover.Width}x{image_cover.Height}");
 
                     //resize
                     if (image_cover.Width > cover_width) image_cover.Resize(cover_width, cover_width);
-                    Console.WriteLine($"final: {image_cover.Height}x{image_cover.Width}");
+                    Console.WriteLine($"final: {image_cover.Width}x{image_cover.Height}");
 
                     //convert to cover.webp
                     image_cover.Write(cover);
