@@ -2,26 +2,27 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
 
 namespace covergen {
     class Program {
         static void Main() {
-
+            var tmp_di = Directory.CreateDirectory("tmp");
             MagickGeometry square = new MagickGeometry("1:1");
             Console.Write("Enter the music root path:");
             string path = Console.ReadLine();
             if (!Directory.Exists(path)) return;
             Console.WriteLine("Enter the width of cover:");
-            int.TryParse(Console.ReadLine(), out int cover_width);
+            if (!int.TryParse(Console.ReadLine(), out int cover_width)) return;
             Console.WriteLine("Press enter to start processing");
             Console.ReadLine();
             Stopwatch sw = new Stopwatch();
             sw.Start();
             try {
-                var wvs = new DirectoryInfo(path).EnumerateFiles("*.wv", SearchOption.AllDirectories);
-                var wvdirs = wvs.GroupBy(wv => wv.Directory.FullName).Select(wvGrop => wvGrop.First().Directory).ToArray();
+                var dirs = new DirectoryInfo(path).EnumerateDirectories("*", SearchOption.AllDirectories);
+                var wvdirs = dirs.Where(dir => dir.EnumerateFiles("*.wv").Any()).ToArray();
 
                 static void ExcuteBatch(string batName, string input) {
                     var fileName = Path.Combine("batch", $"{batName}.bat");
@@ -36,34 +37,32 @@ namespace covergen {
                     if (p.ExitCode != 0) throw new Exception($"ExitCode NEQ 0");
                 }
 
-                string configPath = @"tmp\config.json";
+
                 for (int i = 0; i < wvdirs.Length; i++) {
                     var wvdir = wvdirs[i];
                     string cover = Path.Combine(wvdir.FullName, "cover.webp");
-                    var rar = wvdir.EnumerateFiles("base.rar").FirstOrDefault() ?? wvdir.EnumerateFiles("orig.rar").FirstOrDefault();
-                    if (rar == null) continue;
+                    var zip = wvdir.EnumerateFiles("base.zip").FirstOrDefault() ?? wvdir.EnumerateFiles("orig.zip").FirstOrDefault();
+                    if (zip == null) continue;
 
                     Console.WriteLine($"Processing {wvdir.Name} ... {i + 1} of {wvdirs.Length}");
 
-                    //extract to tmp dir
-                    ExcuteBatch("unpack", rar.FullName);
+                    //iterate through the collection of entries
+                    using var archive = ZipFile.OpenRead(zip.FullName);
+                    var imgEntry = archive.Entries.First(entry => entry.FullName.EndsWith(".webp") || entry.FullName.EndsWith(".jpg"));
+                    var configJsonEntry = archive.GetEntry("config.json");
 
-                    var img_input = Directory.EnumerateFiles("tmp", "*.*")
-                        .Where(f => {
-                            var ext = Path.GetExtension(f);
-                            return ext == ".webp" || ext == ".jpg";
-                        }).First();
-
-                    using MagickImage image = new MagickImage(img_input);
+                    using var stream = imgEntry.Open();
+                    using var image = new MagickImage(stream);
                     string noiseSwitch = string.Empty;
                     string scaleSwitch = string.Empty;
                     int scale = 2;
 
                     Console.WriteLine($"original: {image.Height}x{image.Width}");
 
-                    //config.json
-                    if (File.Exists(configPath)) {
-                        var jsonString = File.ReadAllText(configPath);
+                    if (configJsonEntry != null) {
+                        using var stream_config = configJsonEntry.Open();
+                        using var sr = new StreamReader(stream_config);
+                        var jsonString = sr.ReadToEnd();
                         var config = JsonSerializer.Deserialize<Config>(jsonString);
                         if (config.Crop != null) {
                             int right = config.Crop.Right;
@@ -74,18 +73,16 @@ namespace covergen {
                             image.RePage();
                             Console.WriteLine($"cropped: {image.Height}x{image.Width}");
                         }
-
                         if (config.Noise != null) noiseSwitch = $"-n {config.Noise}";
-                    }
 
+
+                    }
                     while (scale * image.Width < cover_width) scale *= 2;
                     if (scale != 2) scaleSwitch = $"-s {scale}";
                     Console.WriteLine($"scale:{scale}");
                     image.Write(@"tmp\cover.bmp");
-
                     //waifu2x
                     ExcuteBatch("waifu2x", string.Join(" ", noiseSwitch, scaleSwitch));
-
                     //center crop
                     using MagickImage image_cover = new MagickImage(@"tmp\cover.png");
                     Console.WriteLine($"upscaled: {image_cover.Height}x{image_cover.Width}");
@@ -102,7 +99,6 @@ namespace covergen {
                     //convert to cover.webp
                     image_cover.Write(cover);
 
-                    Directory.Delete("tmp", true);
                     Console.WriteLine("done");
                 }
 
