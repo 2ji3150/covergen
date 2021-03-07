@@ -5,12 +5,13 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace covergen {
     class Program {
-        static void Main() {
+        static async Task Main() {
             var tmp_di = Directory.CreateDirectory("tmp");
-            MagickGeometry square = new MagickGeometry("1:1");
+            MagickGeometry square = new("1:1");
             Console.Write("Enter the music root path:");
             string path = Console.ReadLine();
             if (!Directory.Exists(path)) return;
@@ -18,22 +19,22 @@ namespace covergen {
             if (!int.TryParse(Console.ReadLine(), out int cover_width)) return;
             Console.WriteLine("Press enter to start processing");
             Console.ReadLine();
-            Stopwatch sw = new Stopwatch();
+            Stopwatch sw = new();
             sw.Start();
             try {
                 var dirs = new DirectoryInfo(path).EnumerateDirectories("*", SearchOption.AllDirectories);
                 var wvdirs = dirs.Where(dir => dir.EnumerateFiles("*.wv").Any()).ToArray();
 
-                static void ExcuteBatch(string batName, string input) {
+                static async Task ExcuteBatchAsync(string batName, string input) {
                     var fileName = Path.Combine("batch", $"{batName}.bat");
                     var arguments = $@"""{input}""";
-                    ProcessStartInfo psi = new ProcessStartInfo(fileName, arguments) {
+                    ProcessStartInfo psi = new(fileName, arguments) {
                         UseShellExecute = false,
                         CreateNoWindow = true,
                     };
 
                     using Process p = Process.Start(psi);
-                    p.WaitForExit();
+                    await p.WaitForExitAsync();
                     if (p.ExitCode != 0) throw new Exception($"ExitCode NEQ 0");
                 }
 
@@ -74,8 +75,6 @@ namespace covergen {
                             Console.WriteLine($"cropped: {image.Width}x{image.Height}");
                         }
                         if (config.Noise != null) noiseSwitch = $"-n {config.Noise}";
-
-
                     }
                     var breadth = Math.Min(image.Width, image.Height);
                     while (scale * breadth < cover_width) scale *= 2;
@@ -83,9 +82,9 @@ namespace covergen {
                     Console.WriteLine($"scale:{scale}");
                     image.Write(@"tmp\cover.bmp");
                     //waifu2x
-                    ExcuteBatch("waifu2x", string.Join(" ", noiseSwitch, scaleSwitch));
+                    await ExcuteBatchAsync("waifu2x", string.Join(" ", noiseSwitch, scaleSwitch));
                     //center crop
-                    using MagickImage image_cover = new MagickImage(@"tmp\cover.png");
+                    using MagickImage image_cover = new(@"tmp\cover.png");
                     Console.WriteLine($"upscaled: {image_cover.Width}x{image_cover.Height}");
                     if (image_cover.Width != image_cover.Height) {
                         image_cover.Crop(square, Gravity.Center);
