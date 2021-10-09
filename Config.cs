@@ -1,16 +1,21 @@
-﻿namespace covergen
-{
-    public class Config
-    {
-        public ushort? Noise { get; set; }
-        public Crop Crop { get; set; }
-    }
+﻿using ImageMagick;
+using System.Text.Json.Serialization;
 
-    public class Crop
-    {
-        public ushort Top { get; set; }
-        public ushort Bottom { get; set; }
-        public ushort Left { get; set; }
-        public ushort Right { get; set; }
-    }
+namespace covergen;
+
+public class Config
+{
+    public int? Noise { get; init; }
+    public Crop? Crop { get; init; }
+}
+
+public class Crop
+{
+    public int Top { get; init; }
+    public int Bottom { get; init; }
+    public int Left { get; init; }
+    public int Right { get; init; }
+
+    public MagickGeometry GetMagickGeometry(int width, int height) => new(Left, Top, width - Left - Right, height - Top - Bottom);
+
 }
